@@ -43,7 +43,7 @@ dependencies = ["gradio>=6.0,<7.0"]
 dev = ["build", "twine"]
 
 [project.urls]
-repository = "https://github.com/shriarul5273/sync3dcompare"
+repository = "https://github.com/shriarul5273/gradio-sync3dcompare"
 
 [tool.hatch.build]
 artifacts = ["/backend/gradio_sync3dcompare/templates", "*.pyi"]
