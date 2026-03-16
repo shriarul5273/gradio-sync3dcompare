@@ -21,10 +21,10 @@ with gr.Blocks(
 # `gradio_sync3dcompare`
 
 <div style="display: flex; gap: 7px;">
-<img alt="Static Badge" src="https://img.shields.io/badge/version%20-%200.0.1%20-%20orange">  
+<a href="https://pypi.org/project/gradio_sync3dcompare/" target="_blank"><img alt="PyPI - Version" src="https://img.shields.io/pypi/v/gradio_sync3dcompare"></a> <a href="https://github.com/shriarul5273/gradio-sync3dcompare/issues" target="_blank"><img alt="Static Badge" src="https://img.shields.io/badge/Issues-white?logo=github&logoColor=black"></a> 
 </div>
 
-Python library for easily interacting with trained machine learning models
+Synchronized side-by-side 3D comparison viewer for Gradio — supports PLY and GLB files with shared camera control.
 """, elem_classes=["md-custom"], header_links=True)
     app.render()
     gr.Markdown(
