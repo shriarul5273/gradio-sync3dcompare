@@ -6,6 +6,7 @@
   import Sync3DCompare from "./shared/Sync3DCompare.svelte";
 
   const props = $props();
+  // svelte-ignore state_referenced_locally
   const gradio = new Gradio<Sync3DCompareEvents, Sync3DCompareProps>(props);
 </script>
 
@@ -29,8 +30,18 @@
 
   <Sync3DCompare
     value={gradio.props.value}
-    onchange={(v) => {
-      gradio.dispatch("change");
+    render_mode={gradio.props.render_mode}
+    sync_camera={gradio.props.sync_camera}
+    point_size={gradio.props.point_size}
+    max_point_size={gradio.props.max_point_size}
+    height={gradio.props.height}
+    max_views={gradio.props.max_views}
+    default_zoom={gradio.props.default_zoom}
+    min_zoom={gradio.props.min_zoom}
+    max_zoom={gradio.props.max_zoom}
+    onchange={(nextValue) => {
+      gradio.props.value = nextValue;
+      gradio.dispatch("change", nextValue);
     }}
   />
 </Block>

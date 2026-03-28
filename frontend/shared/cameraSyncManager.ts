@@ -11,22 +11,46 @@ export interface ViewportEntry {
 
 export class CameraSyncManager {
   private viewports = new Map<string, ViewportEntry>();
+  private listeners = new Map<string, () => void>();
   private isSyncing = false;
   private syncEnabled = true;
 
   register(entry: ViewportEntry): void {
+    const previous = this.viewports.get(entry.id);
+    const previousListener = this.listeners.get(entry.id);
+    if (previous && previousListener) {
+      previous.controls.removeEventListener("change", previousListener);
+    }
+
     this.viewports.set(entry.id, entry);
-    entry.controls.addEventListener("change", () => {
+    const listener = () => {
       this.onControlChange(entry.id);
-    });
+    };
+    this.listeners.set(entry.id, listener);
+    entry.controls.addEventListener("change", listener);
   }
 
   unregister(id: string): void {
+    const entry = this.viewports.get(id);
+    const listener = this.listeners.get(id);
+    if (entry && listener) {
+      entry.controls.removeEventListener("change", listener);
+    }
     this.viewports.delete(id);
+    this.listeners.delete(id);
   }
 
   setEnabled(enabled: boolean): void {
     this.syncEnabled = enabled;
+  }
+
+  setZoom(zoom: number): void {
+    for (const vp of this.viewports.values()) {
+      vp.camera.zoom = zoom;
+      vp.camera.updateProjectionMatrix();
+      vp.controls.update();
+      vp.render();
+    }
   }
 
   resetAll(state: CameraState): void {

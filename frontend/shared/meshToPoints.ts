@@ -2,6 +2,8 @@ import * as THREE from "three";
 
 const SAMPLE_COUNT = 100_000;
 
+type PointAttribute = THREE.BufferAttribute | THREE.InterleavedBufferAttribute;
+
 /**
  * Samples surface points from all meshes in a GLB scene.
  * Returns a Points object for display.
@@ -15,16 +17,40 @@ export function glbToPoints(
   const colors: number[] = [];
 
   const meshes: THREE.Mesh[] = [];
+  const pointClouds: THREE.Points[] = [];
   scene.traverse((child) => {
     if ((child as THREE.Mesh).isMesh) {
       meshes.push(child as THREE.Mesh);
+      return;
+    }
+    if ((child as THREE.Points).isPoints) {
+      pointClouds.push(child as THREE.Points);
     }
   });
 
-  if (meshes.length === 0) {
+  if (meshes.length === 0 && pointClouds.length === 0) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.Float32BufferAttribute([], 3));
     return new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.02 }));
+  }
+
+  const totalPointCount = pointClouds.reduce(
+    (sum, pointCloud) => sum + getPointCount(pointCloud),
+    0
+  );
+  const pointSampleBudget = Math.min(sampleCount, totalPointCount);
+
+  for (let i = 0; i < pointClouds.length; i++) {
+    const pointCloud = pointClouds[i];
+    const pointCount = getPointCount(pointCloud);
+    if (pointCount === 0) continue;
+
+    const pointSamples =
+      pointSampleBudget >= totalPointCount
+        ? pointCount
+        : Math.max(1, Math.round((pointCount / totalPointCount) * pointSampleBudget));
+
+    samplePointCloud(pointCloud, pointSamples, positions, colors, fallbackColor);
   }
 
   // Compute total triangle count for proportional sampling
@@ -57,6 +83,77 @@ export function glbToPoints(
   });
 
   return new THREE.Points(geo, mat);
+}
+
+function getPointCount(pointCloud: THREE.Points): number {
+  const pos = pointCloud.geometry?.attributes?.position as PointAttribute | undefined;
+  return pos?.count ?? 0;
+}
+
+function getFallbackThreeColor(
+  fallbackColor: [number, number, number]
+): THREE.Color {
+  return new THREE.Color(
+    fallbackColor[0] / 255,
+    fallbackColor[1] / 255,
+    fallbackColor[2] / 255
+  );
+}
+
+function getMaterialColor(
+  material: THREE.Material | THREE.Material[] | undefined,
+  fallbackColor: [number, number, number]
+): THREE.Color {
+  const resolvedMaterial = Array.isArray(material) ? material[0] : material;
+  if (
+    resolvedMaterial &&
+    "color" in resolvedMaterial &&
+    resolvedMaterial.color instanceof THREE.Color
+  ) {
+    return resolvedMaterial.color.clone();
+  }
+  return getFallbackThreeColor(fallbackColor);
+}
+
+function samplePointCloud(
+  pointCloud: THREE.Points,
+  count: number,
+  outPositions: number[],
+  outColors: number[],
+  fallbackColor: [number, number, number]
+): void {
+  const geo = pointCloud.geometry;
+  const pos = geo.attributes.position as PointAttribute | undefined;
+  if (!pos || pos.count === 0) return;
+
+  const hasColor = !!geo.attributes.color;
+  const colorAttr = geo.attributes.color as PointAttribute | undefined;
+  const materialColor = getMaterialColor(pointCloud.material, fallbackColor);
+  const worldMatrix = pointCloud.matrixWorld;
+  const tempPoint = new THREE.Vector3();
+  const tempColor = new THREE.Color();
+
+  const totalPoints = pos.count;
+  const sampleStep = count >= totalPoints ? 1 : totalPoints / count;
+  const sampleCount = count >= totalPoints ? totalPoints : count;
+
+  for (let i = 0; i < sampleCount; i++) {
+    const pointIndex =
+      sampleCount === totalPoints ? i : Math.min(Math.floor(i * sampleStep), totalPoints - 1);
+
+    tempPoint
+      .fromBufferAttribute(pos as THREE.BufferAttribute, pointIndex)
+      .applyMatrix4(worldMatrix);
+
+    outPositions.push(tempPoint.x, tempPoint.y, tempPoint.z);
+
+    if (hasColor && colorAttr) {
+      tempColor.fromBufferAttribute(colorAttr as THREE.BufferAttribute, pointIndex);
+      outColors.push(tempColor.r, tempColor.g, tempColor.b);
+    } else {
+      outColors.push(materialColor.r, materialColor.g, materialColor.b);
+    }
+  }
 }
 
 function estimateMeshArea(mesh: THREE.Mesh): number {
@@ -106,11 +203,7 @@ function sampleMesh(
   const hasColor = !!geo.attributes.color;
   const colorAttr = geo.attributes.color;
   const mat = mesh.material as THREE.MeshStandardMaterial;
-  const matColor = mat?.color ?? new THREE.Color(
-    fallbackColor[0] / 255,
-    fallbackColor[1] / 255,
-    fallbackColor[2] / 255
-  );
+  const matColor = mat?.color ?? getFallbackThreeColor(fallbackColor);
 
   const worldMatrix = mesh.matrixWorld;
   const tempA = new THREE.Vector3();

@@ -18,7 +18,11 @@ export interface Sync3DCompareValue {
   render_mode: RenderMode;
   sync_camera: boolean;
   point_size: number;
+  max_point_size: number;
   height: number;
+  default_zoom: number;
+  min_zoom: number;
+  max_zoom: number;
 }
 
 export interface CameraState {
@@ -33,11 +37,15 @@ export interface Sync3DCompareProps {
   render_mode?: RenderMode;
   sync_camera?: boolean;
   point_size?: number;
+  max_point_size?: number;
   height?: number;
   max_views?: number;
+  default_zoom?: number;
+  min_zoom?: number;
+  max_zoom?: number;
 }
 
 export interface Sync3DCompareEvents {
-  change: never;
+  change: Sync3DCompareValue;
   clear_status: LoadingStatus;
 }

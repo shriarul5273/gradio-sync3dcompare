@@ -5,6 +5,7 @@ Tests validation logic, postprocessing, and error cases.
 import pytest
 import sys
 import os
+from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
@@ -17,7 +18,11 @@ def make_component(**kwargs):
     comp.render_mode = kwargs.get("render_mode", "points")
     comp.sync_camera = kwargs.get("sync_camera", True)
     comp.point_size = kwargs.get("point_size", 2.0)
+    comp.max_point_size = kwargs.get("max_point_size", 10.0)
     comp.height = kwargs.get("height", 500)
+    comp.default_zoom = kwargs.get("default_zoom", 1.0)
+    comp.min_zoom = kwargs.get("min_zoom", 0.5)
+    comp.max_zoom = kwargs.get("max_zoom", 16.0)
     comp.max_views = kwargs.get("max_views", 4)
     return comp
 
@@ -47,6 +52,17 @@ class TestValidation:
         ]
         result = comp._validate_assets(assets)
         assert len(result) == 3
+
+    def test_valid_mixed_assets_up_to_max_views(self):
+        comp = make_component(max_views=4)
+        assets = [
+            {"path": "a.ply", "type": "ply"},
+            {"path": "b.glb", "type": "glb"},
+            {"path": "c.ply", "type": "ply"},
+            {"path": "d.glb", "type": "glb"},
+        ]
+        result = comp._validate_assets(assets)
+        assert len(result) == 4
 
     def test_name_preserved_when_given(self):
         comp = make_component()
@@ -88,6 +104,17 @@ class TestValidation:
         ])
         assert result[0]["metadata"] == {"source": "test"}
 
+    def test_type_inferred_from_glb_extension(self):
+        comp = make_component()
+        result = comp._validate_assets([{"path": "mesh_a.glb"}])
+        assert result[0]["type"] == "glb"
+
+    def test_pathlike_input_is_supported(self):
+        comp = make_component()
+        result = comp._validate_assets([{"path": Path("mesh_a.glb")}])
+        assert result[0]["path"] == "mesh_a.glb"
+        assert result[0]["type"] == "glb"
+
 
 class TestErrorCases:
 
@@ -106,10 +133,10 @@ class TestErrorCases:
         with pytest.raises(ValueError, match="missing required field 'path'"):
             comp._validate_assets([{"path": "", "type": "ply"}])
 
-    def test_missing_type_raises(self):
+    def test_missing_type_raises_for_unknown_extension(self):
         comp = make_component()
-        with pytest.raises(ValueError, match="missing required field 'type'"):
-            comp._validate_assets([{"path": "a.ply"}])
+        with pytest.raises(ValueError, match="Provide the 'type' explicitly"):
+            comp._validate_assets([{"path": "a.unknown"}])
 
     def test_invalid_color_length_raises(self):
         comp = make_component()
@@ -149,12 +176,23 @@ class TestPostprocess:
         assert result["render_mode"] == "points"
         assert result["sync_camera"] is True
         assert result["point_size"] == 2.0
+        assert result["max_point_size"] == 10.0
         assert result["height"] == 500
+        assert result["default_zoom"] == 1.0
+        assert result["min_zoom"] == 0.5
+        assert result["max_zoom"] == 16.0
 
     def test_postprocess_invalid_raises(self):
         comp = make_component()
         with pytest.raises(ValueError):
             comp.postprocess([{"path": "a.obj", "type": "obj"}])
+
+    def test_postprocess_reuses_existing_url(self):
+        comp = make_component()
+        result = comp.postprocess(
+            [{"path": "https://example.com/a.glb", "type": "glb", "url": "https://example.com/a.glb"}]
+        )
+        assert result["assets"][0]["url"] == "https://example.com/a.glb"
 
 
 class TestPreprocess:
@@ -174,3 +212,29 @@ class TestPreprocess:
         data = [{"path": "a.ply", "type": "ply"}]
         result = comp.preprocess(data)
         assert result == data
+
+
+class TestInit:
+
+    def test_num_views_alias_sets_max_views(self):
+        comp = Sync3DCompare(num_views=2)
+        assert comp.max_views == 2
+
+    def test_zoom_kwargs_are_preserved(self):
+        comp = Sync3DCompare(default_zoom=2.0, min_zoom=0.75, max_zoom=12.0)
+        assert comp.default_zoom == 2.0
+        assert comp.min_zoom == 0.75
+        assert comp.max_zoom == 12.0
+
+    def test_max_point_size_is_preserved(self):
+        comp = Sync3DCompare(point_size=6.0, max_point_size=18.0)
+        assert comp.point_size == 6.0
+        assert comp.max_point_size == 18.0
+
+    def test_point_size_cannot_exceed_max_point_size(self):
+        with pytest.raises(ValueError, match="point_size must be less than or equal to max_point_size"):
+            Sync3DCompare(point_size=12.0, max_point_size=10.0)
+
+    def test_point_size_floor_is_enforced(self):
+        with pytest.raises(ValueError, match="must be at least 0.5"):
+            Sync3DCompare(point_size=0.25)

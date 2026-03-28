@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from "svelte";
+  import { onMount } from "svelte";
   import * as THREE from "three";
   import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
   import type { LoadedAsset } from "./assetLoader.js";
@@ -15,9 +15,26 @@
     pointSize: number;
     loading: boolean;
     error: string | null;
+    placeholder?: boolean;
+    uploadable?: boolean;
+    request_upload?: () => void;
+    drop_files?: (files: File[]) => void;
   }
 
-  let { asset, label, height, syncManager, initialCamera, pointSize, loading, error }: Props = $props();
+  let {
+    asset,
+    label,
+    height,
+    syncManager,
+    initialCamera,
+    pointSize,
+    loading,
+    error,
+    placeholder = false,
+    uploadable = false,
+    request_upload,
+    drop_files,
+  }: Props = $props();
 
   let canvasEl: HTMLCanvasElement;
   const viewportId = crypto.randomUUID();
@@ -64,8 +81,6 @@
     scene    = _scene;
     camera   = _camera;
     controls = _controls;
-
-    syncManager.register({ id: viewportId, camera: _camera, controls: _controls, render: renderFrame });
 
     resizeObserver = new ResizeObserver(() => onResize());
     resizeObserver.observe(canvasEl.parentElement!);
@@ -173,10 +188,25 @@
     renderer?.dispose();
     resizeObserver?.disconnect();
   }
+
+  function handlePlaceholderDrop(event: DragEvent) {
+    event.preventDefault();
+    if (!drop_files) return;
+    const files = Array.from(event.dataTransfer?.files ?? []);
+    if (files.length > 0) {
+      drop_files(files);
+    }
+  }
+
+  function handlePlaceholderDragOver(event: DragEvent) {
+    event.preventDefault();
+  }
 </script>
 
 <div class="viewport-wrapper" style="height: {height}px; position: relative;">
-  <div class="viewport-label">{label}</div>
+  {#if !placeholder}
+    <div class="viewport-label">{label}</div>
+  {/if}
 
   {#if loading}
     <div class="overlay loading-overlay">
@@ -191,29 +221,64 @@
     </div>
   {/if}
 
-  <canvas bind:this={canvasEl} style="width:100%; height:{height}px; display:block;"></canvas>
+  {#if placeholder && !loading && !error}
+    <div class="placeholder-frame" aria-hidden="true"></div>
+    <button
+      class="overlay placeholder-overlay placeholder-button"
+      type="button"
+      onclick={request_upload}
+      ondragover={handlePlaceholderDragOver}
+      ondrop={handlePlaceholderDrop}
+      disabled={!uploadable}
+      aria-label="Upload a .ply or .glb file"
+    >
+      <div class="placeholder-icon">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M12 16V6m0 0-4 4m4-4 4 4M5 19h14"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.7"
+          />
+        </svg>
+      </div>
+      <span class="placeholder-title">Upload</span>
+      <span class="placeholder-subtitle">.ply / .glb</span>
+    </button>
+  {/if}
+
+  <canvas
+    bind:this={canvasEl}
+    class:placeholder-canvas={placeholder && !loading && !error}
+    style="width:100%; height:{height}px; display:block;"
+  ></canvas>
 </div>
 
 <style>
   .viewport-wrapper {
     position: relative;
-    background: #1a1a2e;
-    border-radius: 6px;
+    background: linear-gradient(180deg, #1f223d 0%, #1a1d35 100%);
+    border: 1px solid #2e3353;
+    border-radius: 10px;
     overflow: hidden;
     flex: 1 1 0;
     min-width: 0;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
   }
   .viewport-label {
     position: absolute;
-    top: 8px;
-    left: 8px;
+    top: 12px;
+    left: 12px;
     z-index: 10;
-    background: rgba(0,0,0,0.55);
-    color: #e0e0e0;
+    background: rgba(9, 12, 26, 0.78);
+    color: #d8def6;
     font-size: 12px;
-    font-family: monospace;
-    padding: 3px 8px;
-    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    padding: 4px 9px;
+    border-radius: 999px;
+    border: 1px solid rgba(125, 140, 192, 0.28);
     pointer-events: none;
   }
   .overlay {
@@ -226,11 +291,63 @@
     justify-content: center;
     gap: 10px;
     font-size: 13px;
-    font-family: monospace;
+    font-family: ui-sans-serif, system-ui, sans-serif;
     pointer-events: none;
   }
-  .loading-overlay { background: rgba(26,26,46,0.85); color: #aaa; }
+  .loading-overlay { background: rgba(20, 24, 44, 0.82); color: #a9b3d9; }
   .error-overlay   { background: rgba(80,20,20,0.85);  color: #ff8888; }
+  .placeholder-overlay {
+    color: #7c88b8;
+    gap: 6px;
+    pointer-events: auto;
+  }
+  .placeholder-button {
+    border: 0;
+    background: transparent;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+  }
+  .placeholder-button:disabled {
+    cursor: default;
+  }
+  .placeholder-button:focus-visible {
+    outline: 2px solid #7da2ff;
+    outline-offset: -12px;
+  }
+  .placeholder-frame {
+    position: absolute;
+    inset: 10px;
+    border: 1px dashed rgba(124, 136, 184, 0.42);
+    border-radius: 8px;
+    pointer-events: none;
+  }
+  .placeholder-icon {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 999px;
+    border: 1px solid rgba(124, 136, 184, 0.3);
+    background: rgba(18, 22, 43, 0.42);
+  }
+  .placeholder-icon svg {
+    width: 22px;
+    height: 22px;
+  }
+  .placeholder-title {
+    color: #9aa7dc;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .placeholder-subtitle {
+    color: #65719f;
+    font-size: 11px;
+    letter-spacing: 0.02em;
+  }
+  .placeholder-canvas {
+    opacity: 0;
+  }
   .spinner {
     width: 28px; height: 28px;
     border: 3px solid #444;

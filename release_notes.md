@@ -1,36 +1,40 @@
 # Release Notes — gradio_sync3dcompare
-
+<a href="https://huggingface.co/spaces/shriarul5273/gradio_sync3dcompare_demo" target="_blank"><img alt="Hugging Face Spaces" src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue"></a>
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/gradio-sync3dcompare?period=total&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/gradio-sync3dcompare)
 ---
 
-# 🎉 gradio_sync3dcompare v0.0.8
+# 🎉 gradio_sync3dcompare v0.0.12
 
-Initial release of the synchronized 3D comparison viewer for Gradio.
+This release focuses on stabilizing the custom component workflow, clarifying demo behavior, and improving local file handling for PLY and GLB assets.
 
-## ✨ New: 3D Viewer Component
+## ✨ Improvements
 
-**Features**
-- 🖼️ Synchronized side-by-side 3D comparison viewer as a Gradio custom component
-- 📦 Supports **PLY** point cloud files and **GLB** mesh files (up to 4 viewports)
-- 🔄 Two render modes:
-  - `points` — renders PLY directly; samples GLB surface to a point cloud for fair comparison
-  - `native` — renders GLB with full PBR materials and lighting
-- 🎥 Camera synchronization across all viewports (orbit, pan, zoom) with `isSyncing` lock to prevent feedback loops
-- 📐 Shared auto-camera based on global bounding box of all loaded assets
-- 🎛️ Toolbar controls: Reset camera · Points/Native toggle · Point-size slider
-- 🏷️ Per-asset configuration: `name`, `color [R,G,B]`, `visible`, `metadata`
-- ✅ Backend validation: type checking, path validation, color validation, `max_views` enforcement
-- 🌐 Gradio file-serving integration (`serve_static_file`) so browser can fetch assets via `/gradio_api/file=`
+**Backend**
+- Added support for both `max_views` and `num_views` when configuring the component
+- Added automatic asset-type inference from `.ply` and `.glb` file extensions when `type` is omitted
+- Improved local file handling by normalizing filesystem paths and serving browser-safe URLs through Gradio's `serve_static_file()`
+- Kept validation for asset shape, color values, and viewport-count limits
 
-## 🛠️ Tech Stack
+**Frontend**
+- Preserved synchronized orbit, pan, and zoom across side-by-side viewports
+- Continued support for both `points` and `native` render modes
+- Improved component prop wiring so runtime updates from Gradio events are passed through consistently
 
-- 🐍 Python backend: Gradio 6.x custom component
-- ⚡ Frontend: Svelte 5 + TypeScript + Three.js r170
-- 📂 Loaders: `PLYLoader`, `GLTFLoader` (supports `KHR_materials_specular`)
-- 🔵 GLB→points: area-weighted surface sampling (`MeshSurfaceSampler`-style)
+**Demos**
+- Simplified `demo/app.py` to a 2-viewport comparison demo with manual `.ply` / `.glb` upload
+- Added a button-driven `demo_sync.py` example that loads two GLB files from `demo/sample_data`
+- Kept the component itself compatible with up to 4 viewports even though the main demo now shows 2 by default
+
+## 🛠️ Development Notes
+
+- `gradio cc dev` should be run from the same checkout that is installed in editable mode
+- If multiple local copies of the repo exist, Vite may fail with a `server.fs.allow` path error if Gradio resolves the frontend from a different checkout
+- Node.js 20 or 22 remains the safer choice for custom-component development; Node.js 24 has been unreliable in local dev mode
 
 ## ⚠️ Known Limitations
 
-- Maximum 4 viewports (MVP constraint)
+- Maximum 4 viewports
 - No DRACO-compressed GLB support yet
-- `gradio cc dev` hot-reload incompatible with Node.js v24 (use `python demo_sync.py` instead)
-
+- GLB rendering behavior depends on the selected mode:
+  - `native` renders the mesh directly
+  - `points` converts GLB geometry into a sampled point cloud

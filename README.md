@@ -1,6 +1,7 @@
 
 # `gradio_sync3dcompare`
 <a href="https://pypi.org/project/gradio_sync3dcompare/" target="_blank"><img alt="PyPI - Version" src="https://img.shields.io/pypi/v/gradio_sync3dcompare"></a> <a href="https://github.com/shriarul5273/gradio-sync3dcompare/issues" target="_blank"><img alt="Static Badge" src="https://img.shields.io/badge/Issues-white?logo=github&logoColor=black"></a><a href="https://huggingface.co/spaces/shriarul5273/gradio_sync3dcompare_demo" target="_blank"><img alt="Hugging Face Spaces" src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue"></a>
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/gradio-sync3dcompare?period=total&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/gradio-sync3dcompare)
 
 Synchronized side-by-side 3D comparison viewer for Gradio — supports PLY and GLB files with shared camera control.
 
@@ -15,102 +16,26 @@ pip install gradio_sync3dcompare
 ```python
 import gradio as gr
 from gradio_sync3dcompare import Sync3DCompare
-import os
-
-SAMPLE_DIR = os.path.join(os.path.dirname(__file__), "sample_data")
-
-def get_path(filename):
-    return os.path.join(SAMPLE_DIR, filename)
 
 
 with gr.Blocks(title="Sync3DCompare Demo") as demo:
     gr.Markdown("# Sync3DCompare — Synchronized 3D Comparison Viewer")
     gr.Markdown(
-        "Compare 3D reconstruction outputs side-by-side with synchronized orbit, pan, and zoom. "
+        "Compare two 3D assets side-by-side with synchronized orbit, pan, and zoom. "
         "Rotate one view and all others follow."
     )
-
-    with gr.Tabs():
-
-        # --- Tab A: PLY comparison ---
-        with gr.TabItem("PLY Comparison"):
-            gr.Markdown("### Three PLY point clouds compared side-by-side")
-            Sync3DCompare(
-                label="PLY Comparison",
-                value=[
-                    {
-                        "name": "Ground Truth",
-                        "path": get_path("ground_truth.ply"),
-                        "type": "ply",
-                        "color": [80, 200, 120],
-                    },
-                    {
-                        "name": "Method A",
-                        "path": get_path("method_a.ply"),
-                        "type": "ply",
-                        "color": [100, 160, 240],
-                    },
-                    {
-                        "name": "Method B",
-                        "path": get_path("method_b.ply"),
-                        "type": "ply",
-                        "color": [240, 140, 80],
-                    },
-                ],
-                render_mode="points",
-                sync_camera=True,
-                point_size=2.0,
-                height=500,
-            )
-
-        # --- Tab B: GLB comparison ---
-        with gr.TabItem("GLB Comparison"):
-            gr.Markdown("### Two GLB mesh outputs compared in native mode")
-            Sync3DCompare(
-                label="GLB Comparison",
-                value=[
-                    {
-                        "name": "Mesh A (detailed)",
-                        "path": get_path("mesh_a.glb"),
-                        "type": "glb",
-                    },
-                    {
-                        "name": "Mesh B (coarse)",
-                        "path": get_path("mesh_b.glb"),
-                        "type": "glb",
-                    },
-                ],
-                render_mode="native",
-                sync_camera=True,
-                point_size=2.0,
-                height=500,
-            )
-
-        # --- Tab C: Mixed PLY + GLB ---
-        with gr.TabItem("Mixed Format (Points Mode)"):
-            gr.Markdown(
-                "### PLY + GLB compared in `points` mode — GLB is sampled to point cloud for fair comparison"
-            )
-            Sync3DCompare(
-                label="Mixed Format Comparison",
-                value=[
-                    {
-                        "name": "PLY Point Cloud",
-                        "path": get_path("ground_truth.ply"),
-                        "type": "ply",
-                        "color": [80, 200, 120],
-                    },
-                    {
-                        "name": "GLB as Points",
-                        "path": get_path("mesh_a.glb"),
-                        "type": "glb",
-                    },
-                ],
-                render_mode="points",
-                sync_camera=True,
-                point_size=3.0,
-                height=500,
-            )
+    gr.Markdown(
+        "### Two synchronized viewports. Upload `.ply` or `.glb` files manually into each pane."
+    )
+    Sync3DCompare(
+        label="Two-Viewport 3D Comparison",
+        value=[],
+        render_mode="points",
+        sync_camera=True,
+        point_size=2.0,
+        height=540,
+        max_views=2,
+    )
 
 
 if __name__ == "__main__":
@@ -198,6 +123,58 @@ float
 </tr>
 
 <tr>
+<td align="left"><code>max_point_size</code></td>
+<td align="left" style="width: 25%;">
+
+```python
+float
+```
+
+</td>
+<td align="left"><code>value = 10.0</code></td>
+<td align="left">None</td>
+</tr>
+
+<tr>
+<td align="left"><code>default_zoom</code></td>
+<td align="left" style="width: 25%;">
+
+```python
+float
+```
+
+</td>
+<td align="left"><code>value = 1.0</code></td>
+<td align="left">None</td>
+</tr>
+
+<tr>
+<td align="left"><code>min_zoom</code></td>
+<td align="left" style="width: 25%;">
+
+```python
+float
+```
+
+</td>
+<td align="left"><code>value = 0.5</code></td>
+<td align="left">None</td>
+</tr>
+
+<tr>
+<td align="left"><code>max_zoom</code></td>
+<td align="left" style="width: 25%;">
+
+```python
+float
+```
+
+</td>
+<td align="left"><code>value = 16.0</code></td>
+<td align="left">None</td>
+</tr>
+
+<tr>
 <td align="left"><code>height</code></td>
 <td align="left" style="width: 25%;">
 
@@ -211,7 +188,7 @@ int
 </tr>
 
 <tr>
-<td align="left"><code>num_views</code></td>
+<td align="left"><code>max_views</code></td>
 <td align="left" style="width: 25%;">
 
 ```python
@@ -219,7 +196,20 @@ int
 ```
 
 </td>
-<td align="left"><code>value = 2</code></td>
+<td align="left"><code>value = 4</code></td>
+<td align="left">None</td>
+</tr>
+
+<tr>
+<td align="left"><code>num_views</code></td>
+<td align="left" style="width: 25%;">
+
+```python
+int| None
+```
+
+</td>
+<td align="left"><code>value = None</code></td>
 <td align="left">None</td>
 </tr>
 
