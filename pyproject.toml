@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gradio_sync3dcompare"
-version = "0.0.2"
+version = "0.0.8"
 description = "Synchronized side-by-side 3D comparison viewer for Gradio — supports PLY and GLB files with shared camera control."
 readme = "README.md"
 license = "Apache-2.0"
@@ -46,7 +46,7 @@ dev = ["build", "twine"]
 repository = "https://github.com/shriarul5273/gradio-sync3dcompare"
 
 [tool.hatch.build]
-artifacts = ["/backend/gradio_sync3dcompare/templates", "*.pyi"]
+artifacts = ["/backend/gradio_sync3dcompare/templates", "*.pyi", "/home/sangeethaa/miniforge3/envs/gradev/lib/python3.14/site-packages/gradio_sync3dcompare/templates"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["/backend/gradio_sync3dcompare"]

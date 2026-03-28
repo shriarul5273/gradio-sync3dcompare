@@ -2,7 +2,7 @@
 
 ---
 
-# 🎉 gradio_sync3dcompare v0.0.1
+# 🎉 gradio_sync3dcompare v0.0.8
 
 Initial release of the synchronized 3D comparison viewer for Gradio.
 
