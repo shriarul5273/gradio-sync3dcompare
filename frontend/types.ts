@@ -2,6 +2,7 @@ import type { LoadingStatus } from "@gradio/utils";
 
 export type AssetType = "ply" | "glb";
 export type RenderMode = "points" | "native";
+export type PointSizeMode = "auto" | "manual";
 
 export interface AssetDescriptor {
   name?: string;
@@ -17,6 +18,7 @@ export interface Sync3DCompareValue {
   assets: AssetDescriptor[];
   render_mode: RenderMode;
   sync_camera: boolean;
+  point_size_mode: PointSizeMode;
   point_size: number;
   max_point_size: number;
   height: number;
@@ -30,12 +32,15 @@ export interface CameraState {
   target: { x: number; y: number; z: number };
   zoom: number;
   up: { x: number; y: number; z: number };
+  near?: number;
+  far?: number;
 }
 
 export interface Sync3DCompareProps {
   value: Sync3DCompareValue | null;
   render_mode?: RenderMode;
   sync_camera?: boolean;
+  point_size_mode?: PointSizeMode;
   point_size?: number;
   max_point_size?: number;
   height?: number;

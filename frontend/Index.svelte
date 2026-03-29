@@ -32,6 +32,7 @@
     value={gradio.props.value}
     render_mode={gradio.props.render_mode}
     sync_camera={gradio.props.sync_camera}
+    point_size_mode={gradio.props.point_size_mode}
     point_size={gradio.props.point_size}
     max_point_size={gradio.props.max_point_size}
     height={gradio.props.height}

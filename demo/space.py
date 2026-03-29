@@ -3,7 +3,7 @@ import gradio as gr
 from app import demo as app
 import os
 
-_docs = {'Sync3DCompare': {'description': 'A Gradio custom component for synchronized comparison of 3D reconstruction outputs.\nSupports up to 4 PLY and GLB files, displayed side-by-side with synchronized camera movement.\n', 'members': {'__init__': {'value': {'type': 'list[dict]| None', 'default': 'value = None', 'description': None}, 'label': {'type': 'str| None', 'default': 'value = "3D Comparison"', 'description': None}, 'render_mode': {'type': '"points"| "native"', 'default': 'value = "points"', 'description': None}, 'sync_camera': {'type': 'bool', 'default': 'value = True', 'description': None}, 'point_size': {'type': 'float', 'default': 'value = 2.0', 'description': None}, 'max_point_size': {'type': 'float', 'default': 'value = 10.0', 'description': None}, 'default_zoom': {'type': 'float', 'default': 'value = 1.0', 'description': None}, 'min_zoom': {'type': 'float', 'default': 'value = 0.5', 'description': None}, 'max_zoom': {'type': 'float', 'default': 'value = 16.0', 'description': None}, 'height': {'type': 'int', 'default': 'value = 500', 'description': None}, 'max_views': {'type': 'int', 'default': 'value = 4', 'description': None}, 'num_views': {'type': 'int| None', 'default': 'value = None', 'description': None}, 'interactive': {'type': 'bool', 'default': 'value = True', 'description': None}, 'visible': {'type': 'bool', 'default': 'value = True', 'description': None}, 'elem_id': {'type': 'str| None', 'default': 'value = None', 'description': None}, 'elem_classes': {'type': 'list[str]| str| None', 'default': 'value = None', 'description': None}, 'render': {'type': 'bool', 'default': 'value = True', 'description': None}}, 'postprocess': {'value': {'type': 'list[dict]| None', 'description': "The output data received by the component from the user's function in the backend."}}, 'preprocess': {}}, 'events': {'change': {'type': None, 'default': None, 'description': ''}}}, '__meta__': {'additional_interfaces': {}, 'user_fn_refs': {'Sync3DCompare': []}}}
+_docs = {'Sync3DCompare': {'description': 'A Gradio custom component for synchronized comparison of 3D reconstruction outputs.\nSupports up to 4 PLY and GLB files, displayed side-by-side with synchronized camera movement.\n', 'members': {'__init__': {'value': {'type': 'list[dict]| None', 'default': 'value = None', 'description': None}, 'label': {'type': 'str| None', 'default': 'value = "3D Comparison"', 'description': None}, 'render_mode': {'type': '"points"| "native"', 'default': 'value = "points"', 'description': None}, 'sync_camera': {'type': 'bool', 'default': 'value = True', 'description': None}, 'point_size_mode': {'type': '"auto"| "manual"', 'default': 'value = "auto"', 'description': None}, 'point_size': {'type': 'float', 'default': 'value = 1.0', 'description': None}, 'max_point_size': {'type': 'float', 'default': 'value = 10.0', 'description': None}, 'default_zoom': {'type': 'float', 'default': 'value = 1.0', 'description': None}, 'min_zoom': {'type': 'float', 'default': 'value = 0.5', 'description': None}, 'max_zoom': {'type': 'float', 'default': 'value = 16.0', 'description': None}, 'height': {'type': 'int', 'default': 'value = 500', 'description': None}, 'max_views': {'type': 'int', 'default': 'value = 4', 'description': None}, 'num_views': {'type': 'int| None', 'default': 'value = None', 'description': None}, 'interactive': {'type': 'bool', 'default': 'value = True', 'description': None}, 'visible': {'type': 'bool', 'default': 'value = True', 'description': None}, 'elem_id': {'type': 'str| None', 'default': 'value = None', 'description': None}, 'elem_classes': {'type': 'list[str]| str| None', 'default': 'value = None', 'description': None}, 'render': {'type': 'bool', 'default': 'value = True', 'description': None}}, 'postprocess': {'value': {'type': 'list[dict]| None', 'description': "The output data received by the component from the user's function in the backend."}}, 'preprocess': {}}, 'events': {'change': {'type': None, 'default': None, 'description': ''}}}, '__meta__': {'additional_interfaces': {}, 'user_fn_refs': {'Sync3DCompare': []}}}
 
 abs_path = os.path.join(os.path.dirname(__file__), "css.css")
 
@@ -56,14 +56,15 @@ with gr.Blocks(title="Sync3DCompare Demo") as demo:
         value=[],
         render_mode="points",
         sync_camera=True,
-        point_size=2.0,
+        point_size_mode="auto",
+        point_size=1.0,
         height=540,
         max_views=2,
     )
 
 
 if __name__ == "__main__":
-    demo.launch()
+    demo.launch(ssr_mode=False)
 
 ```
 """, elem_classes=["md-custom"], header_links=True)

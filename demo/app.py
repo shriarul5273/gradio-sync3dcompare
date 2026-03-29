@@ -16,11 +16,12 @@ with gr.Blocks(title="Sync3DCompare Demo") as demo:
         value=[],
         render_mode="points",
         sync_camera=True,
-        point_size=2.0,
+        point_size_mode="auto",
+        point_size=1.0,
         height=540,
         max_views=2,
     )
 
 
 if __name__ == "__main__":
-    demo.launch()
+    demo.launch(ssr_mode=False)

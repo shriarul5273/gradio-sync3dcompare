@@ -1,6 +1,7 @@
 
 # `gradio_sync3dcompare`
-<a href="https://pypi.org/project/gradio_sync3dcompare/" target="_blank"><img alt="PyPI - Version" src="https://img.shields.io/pypi/v/gradio_sync3dcompare"></a> <a href="https://github.com/shriarul5273/gradio-sync3dcompare/issues" target="_blank"><img alt="Static Badge" src="https://img.shields.io/badge/Issues-white?logo=github&logoColor=black"></a> 
+<a href="https://pypi.org/project/gradio_sync3dcompare/" target="_blank"><img alt="PyPI - Version" src="https://img.shields.io/pypi/v/gradio_sync3dcompare"></a> <a href="https://github.com/shriarul5273/gradio-sync3dcompare/issues" target="_blank"><img alt="Static Badge" src="https://img.shields.io/badge/Issues-white?logo=github&logoColor=black"></a><a href="https://huggingface.co/spaces/shriarul5273/gradio_sync3dcompare_demo" target="_blank"><img alt="Hugging Face Spaces" src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue"></a>
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/gradio-sync3dcompare?period=total&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/gradio-sync3dcompare)
 
 Synchronized side-by-side 3D comparison viewer for Gradio — supports PLY and GLB files with shared camera control.
 
@@ -31,14 +32,15 @@ with gr.Blocks(title="Sync3DCompare Demo") as demo:
         value=[],
         render_mode="points",
         sync_camera=True,
-        point_size=2.0,
+        point_size_mode="auto",
+        point_size=1.0,
         height=540,
         max_views=2,
     )
 
 
 if __name__ == "__main__":
-    demo.launch()
+    demo.launch(ssr_mode=False)
 
 ```
 
@@ -109,6 +111,19 @@ bool
 </tr>
 
 <tr>
+<td align="left"><code>point_size_mode</code></td>
+<td align="left" style="width: 25%;">
+
+```python
+"auto"| "manual"
+```
+
+</td>
+<td align="left"><code>value = "auto"</code></td>
+<td align="left">None</td>
+</tr>
+
+<tr>
 <td align="left"><code>point_size</code></td>
 <td align="left" style="width: 25%;">
 
@@ -117,7 +132,7 @@ float
 ```
 
 </td>
-<td align="left"><code>value = 2.0</code></td>
+<td align="left"><code>value = 1.0</code></td>
 <td align="left">None</td>
 </tr>
 

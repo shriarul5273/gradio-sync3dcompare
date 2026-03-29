@@ -30,7 +30,8 @@ class Sync3DCompareData(GradioModel):
     assets: list[AssetItem]
     render_mode: Literal["points", "native"] = "points"
     sync_camera: bool = True
-    point_size: float = 2.0
+    point_size_mode: Literal["auto", "manual"] = "auto"
+    point_size: float = 1.0
     max_point_size: float = 10.0
     height: int = 500
     default_zoom: float = 1.0
@@ -55,7 +56,8 @@ class Sync3DCompare(Component):
         label: str | None = "3D Comparison",
         render_mode: Literal["points", "native"] = "points",
         sync_camera: bool = True,
-        point_size: float = 2.0,
+        point_size_mode: Literal["auto", "manual"] = "auto",
+        point_size: float = 1.0,
         max_point_size: float = 10.0,
         default_zoom: float = 1.0,
         min_zoom: float = 0.5,
@@ -86,6 +88,7 @@ class Sync3DCompare(Component):
 
         self.render_mode = render_mode
         self.sync_camera = sync_camera
+        self.point_size_mode = point_size_mode
         self.point_size = point_size
         self.max_point_size = max_point_size
         self.default_zoom = min(max(default_zoom, min_zoom), max_zoom)
@@ -197,6 +200,7 @@ class Sync3DCompare(Component):
             "assets": validated,
             "render_mode": self.render_mode,
             "sync_camera": self.sync_camera,
+            "point_size_mode": self.point_size_mode,
             "point_size": self.point_size,
             "max_point_size": self.max_point_size,
             "height": self.height,
@@ -259,6 +263,7 @@ class Sync3DCompare(Component):
                 },
                 "render_mode": {"type": "string", "enum": ["points", "native"]},
                 "sync_camera": {"type": "boolean"},
+                "point_size_mode": {"type": "string", "enum": ["auto", "manual"]},
                 "point_size": {"type": "number"},
                 "max_point_size": {"type": "number"},
                 "height": {"type": "integer"},
@@ -270,6 +275,7 @@ class Sync3DCompare(Component):
                 "assets",
                 "render_mode",
                 "sync_camera",
+                "point_size_mode",
                 "point_size",
                 "max_point_size",
                 "height",

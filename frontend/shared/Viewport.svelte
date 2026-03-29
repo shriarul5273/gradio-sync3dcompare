@@ -3,7 +3,8 @@
   import * as THREE from "three";
   import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
   import type { LoadedAsset } from "./assetLoader.js";
-  import type { CameraState } from "../types";
+  import { resolvePointSize } from "./pointSizing.js";
+  import type { CameraState, PointSizeMode } from "../types";
   import type { CameraSyncManager } from "./cameraSyncManager.js";
 
   interface Props {
@@ -12,6 +13,7 @@
     height: number;
     syncManager: CameraSyncManager;
     initialCamera: CameraState | null;
+    pointSizeMode: PointSizeMode;
     pointSize: number;
     loading: boolean;
     error: string | null;
@@ -19,6 +21,8 @@
     uploadable?: boolean;
     request_upload?: () => void;
     drop_files?: (files: File[]) => void;
+    removable?: boolean;
+    remove_asset?: () => void;
   }
 
   let {
@@ -27,6 +31,7 @@
     height,
     syncManager,
     initialCamera,
+    pointSizeMode,
     pointSize,
     loading,
     error,
@@ -34,6 +39,8 @@
     uploadable = false,
     request_upload,
     drop_files,
+    removable = false,
+    remove_asset,
   }: Props = $props();
 
   let canvasEl: HTMLCanvasElement;
@@ -114,7 +121,13 @@
 
     cam.position.set(ic.position.x, ic.position.y, ic.position.z);
     cam.up.set(ic.up.x, ic.up.y, ic.up.z);
-    cam.zoom = ic.zoom;
+    cam.zoom = 1;
+    if (ic.near !== undefined) {
+      cam.near = ic.near;
+    }
+    if (ic.far !== undefined) {
+      cam.far = ic.far;
+    }
     cam.updateProjectionMatrix();
     ctrl.target.set(ic.target.x, ic.target.y, ic.target.z);
     ctrl.update();
@@ -133,12 +146,17 @@
   // ─── Update point size live ───────────────────────────────────────────────
   $effect(() => {
     const a = asset;
+    const mode = pointSizeMode;
     const ps = pointSize;
     if (!a?.object3d) return;
+
+    const resolvedSize = resolvePointSize(mode, ps, a.basePointSize);
+    if (resolvedSize === null) return;
+
     a.object3d.traverse((child) => {
       const pts = child as THREE.Points;
       if (pts.isPoints && pts.material) {
-        (pts.material as THREE.PointsMaterial).size = ps * 0.01;
+        (pts.material as THREE.PointsMaterial).size = resolvedSize;
       }
     });
     renderFrame();
@@ -205,7 +223,20 @@
 
 <div class="viewport-wrapper" style="height: {height}px; position: relative;">
   {#if !placeholder}
-    <div class="viewport-label">{label}</div>
+    <div class="viewport-header">
+      {#if removable}
+        <button
+          class="viewport-remove-btn"
+          type="button"
+          onclick={remove_asset}
+          aria-label={`Remove ${label}`}
+          title={`Remove ${label}`}
+        >
+          ×
+        </button>
+      {/if}
+      <div class="viewport-label">{label}</div>
+    </div>
   {/if}
 
   {#if loading}
@@ -268,10 +299,6 @@
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
   }
   .viewport-label {
-    position: absolute;
-    top: 12px;
-    left: 12px;
-    z-index: 10;
     background: rgba(9, 12, 26, 0.78);
     color: #d8def6;
     font-size: 12px;
@@ -280,6 +307,41 @@
     border-radius: 999px;
     border: 1px solid rgba(125, 140, 192, 0.28);
     pointer-events: none;
+  }
+  .viewport-header {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 10;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+  }
+  .viewport-remove-btn {
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(125, 140, 192, 0.36);
+    border-radius: 999px;
+    background: rgba(9, 12, 26, 0.88);
+    color: #d8def6;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .viewport-remove-btn:hover {
+    background: rgba(126, 42, 42, 0.92);
+    border-color: rgba(255, 129, 129, 0.46);
+    color: #fff1f1;
+  }
+  .viewport-remove-btn:focus-visible {
+    outline: 2px solid #7da2ff;
+    outline-offset: 2px;
   }
   .overlay {
     position: absolute;

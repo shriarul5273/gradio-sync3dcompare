@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { PLYLoader } from "three/examples/jsm/loaders/PLYLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { glbToPoints } from "./meshToPoints.js";
+import { computeAutoPointSize, getPointCloudMetrics } from "./pointSizing.js";
 import type { AssetDescriptor, RenderMode } from "../types";
 
 export interface LoadedAsset {
@@ -10,6 +11,8 @@ export interface LoadedAsset {
   type: "ply" | "glb";
   object3d: THREE.Object3D;
   bounds: THREE.Box3;
+  fitSphere: THREE.Sphere;
+  basePointSize: number | null;
 }
 
 export async function loadAsset(
@@ -61,6 +64,8 @@ async function loadPLY(
 
   const points = new THREE.Points(geometry, material);
   const bounds = new THREE.Box3().setFromObject(points);
+  const fitSphere = bounds.getBoundingSphere(new THREE.Sphere());
+  const basePointSize = computeAutoPointSize(bounds, geometry.attributes.position.count);
 
   return {
     id: crypto.randomUUID(),
@@ -68,6 +73,8 @@ async function loadPLY(
     type: "ply",
     object3d: points,
     bounds,
+    fitSphere,
+    basePointSize,
   };
 }
 
@@ -89,18 +96,25 @@ async function loadGLB(
   scene.updateMatrixWorld(true);
 
   let object3d: THREE.Object3D;
+  let basePointSize: number | null = null;
 
   if (renderMode === "native") {
     object3d = scene;
+    const pointMetrics = getPointCloudMetrics(scene);
+    if (pointMetrics) {
+      basePointSize = computeAutoPointSize(pointMetrics.bounds, pointMetrics.pointCount);
+    }
   } else {
     // Convert to points
     const pts = glbToPoints(scene, fallbackColor);
-    // Scale point size
-    (pts.material as THREE.PointsMaterial).size = pointSize * 0.01;
     object3d = pts;
+    const pointCount = pts.geometry.attributes.position?.count ?? 0;
+    basePointSize =
+      pointCount > 0 ? computeAutoPointSize(new THREE.Box3().setFromObject(pts), pointCount) : null;
   }
 
   const bounds = new THREE.Box3().setFromObject(object3d);
+  const fitSphere = bounds.getBoundingSphere(new THREE.Sphere());
 
   return {
     id: crypto.randomUUID(),
@@ -108,5 +122,7 @@ async function loadGLB(
     type: "glb",
     object3d,
     bounds,
+    fitSphere,
+    basePointSize,
   };
 }

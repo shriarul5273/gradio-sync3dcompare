@@ -1,10 +1,14 @@
 <script lang="ts">
-  import { onDestroy } from "svelte";
-  import * as THREE from "three";
+  import { onDestroy, untrack } from "svelte";
   import Viewport from "./Viewport.svelte";
   import { CameraSyncManager } from "./cameraSyncManager.js";
   import { loadAsset } from "./assetLoader.js";
-  import { computeAutoCamera, mergeBoxes } from "./boundingBox.js";
+  import {
+    applyCameraZoom,
+    computeAutoCamera,
+    getCameraDistance,
+    mergeBoxes,
+  } from "./boundingBox.js";
   import type { LoadedAsset } from "./assetLoader.js";
   import type {
     AssetDescriptor,
@@ -12,15 +16,18 @@
     Sync3DCompareValue,
     RenderMode,
     CameraState,
+    PointSizeMode,
   } from "../types";
 
   const ACCEPTED_FILE_TYPES = ".ply,.glb,model/gltf-binary";
   const MIN_POINT_SIZE = 0.5;
+  const CAMERA_FIELD_OF_VIEW = 60;
 
   interface Props {
     value: Sync3DCompareValue | null;
     render_mode?: RenderMode;
     sync_camera?: boolean;
+    point_size_mode?: PointSizeMode;
     point_size?: number;
     max_point_size?: number;
     height?: number;
@@ -35,7 +42,8 @@
     value,
     render_mode = "points",
     sync_camera = true,
-    point_size = 2.0,
+    point_size_mode = "auto",
+    point_size = 1.0,
     max_point_size = 10.0,
     height = 500,
     max_views = 4,
@@ -46,8 +54,11 @@
   }: Props = $props();
 
   let fileInputEl: HTMLInputElement;
+  let gridEl: HTMLDivElement | null = null;
   let uploadTarget = $state<{ slotIndex: number; sourceIndex: number | null } | null>(null);
   let managedObjectUrls = new Set<string>();
+  let viewportAspect = $state(1);
+  let pendingAutoFit = $state(false);
 
   function clampZoom(value: number, minValue: number, maxValue: number): number {
     return Math.min(Math.max(value, minValue), maxValue);
@@ -64,6 +75,15 @@
       color: asset.color ? ([...asset.color] as [number, number, number]) : undefined,
       metadata: asset.metadata ? { ...asset.metadata } : undefined,
     };
+  }
+
+  function buildAssetReloadKey(asset: AssetDescriptor): string {
+    return [
+      asset.path,
+      asset.url ?? "",
+      asset.type,
+      asset.color?.join(",") ?? "",
+    ].join("|");
   }
 
   function syncManagedUrls(nextValue: Sync3DCompareValue | null): void {
@@ -99,6 +119,7 @@
       assets: (nextValue?.assets ?? []).map(cloneAsset),
       render_mode: nextValue?.render_mode ?? render_mode,
       sync_camera: nextValue?.sync_camera ?? sync_camera,
+      point_size_mode: nextValue?.point_size_mode ?? point_size_mode,
       point_size: safePointSize,
       max_point_size: safeMaxPointSize,
       height: nextValue?.height ?? height,
@@ -133,6 +154,7 @@
       assets: nextAssets.map(cloneAsset),
       render_mode: overrides.render_mode ?? currentRenderMode,
       sync_camera: overrides.sync_camera ?? syncCamera,
+      point_size_mode: overrides.point_size_mode ?? currentPointSizeMode,
       point_size: clampPointSize(overrides.point_size ?? pointSize, resolvedMaxPointSize),
       max_point_size: resolvedMaxPointSize,
       height: overrides.height ?? viewerHeight,
@@ -223,6 +245,7 @@
   let minAllowedZoom = $derived(runtimeValue.min_zoom);
   let maxAllowedZoom = $derived(runtimeValue.max_zoom);
   let maxViews = $derived(Math.max(2, max_views));
+  let assetReloadKey = $derived(assets.map(buildAssetReloadKey).join("||"));
   let viewportItems = $derived(
     assets
       .map((asset, index) => ({ asset, index }))
@@ -243,19 +266,62 @@
 
   let pointSize = $state(runtimeValue.point_size);
   let maxPointSize = $state(runtimeValue.max_point_size);
+  let currentPointSizeMode = $state<PointSizeMode>(runtimeValue.point_size_mode);
   let currentRenderMode = $state<RenderMode>(runtimeValue.render_mode);
   let zoomLevel = $state(runtimeValue.default_zoom);
+  let appliedZoomLevel = $state(runtimeValue.default_zoom);
 
   let syncManager = new CameraSyncManager();
   let loadedAssets = $state<(LoadedAsset | null)[]>([]);
   let loadingStates = $state<boolean[]>([]);
   let errorStates = $state<(string | null)[]>([]);
   let initialCamera = $state<CameraState | null>(null);
+  let fitReferenceCamera = $state<CameraState | null>(null);
   let loadRequestId = 0;
 
   onDestroy(() => {
     revokeAllManagedUrls();
   });
+
+  function updateViewportAspect() {
+    if (!gridEl) return;
+
+    const firstViewport = gridEl.querySelector<HTMLElement>(".viewport-wrapper");
+    const fallbackWidth = Math.max(gridEl.clientWidth, 1);
+    const measuredWidth = firstViewport?.clientWidth ?? fallbackWidth;
+    const nextAspect = measuredWidth / Math.max(viewerHeight, 1);
+
+    if (Number.isFinite(nextAspect) && nextAspect > 0) {
+      viewportAspect = nextAspect;
+    }
+  }
+
+  function buildBaseFittedCamera(): CameraState | null {
+    const boxes = loadedAssets
+      .filter((loadedAsset) => loadedAsset !== null)
+      .map((loadedAsset) => loadedAsset!.bounds);
+
+    if (boxes.length === 0) {
+      return null;
+    }
+
+    const globalBox = mergeBoxes(boxes);
+    return computeAutoCamera(globalBox, viewportAspect, CAMERA_FIELD_OF_VIEW);
+  }
+
+  function updateZoomFromCameraState(state: CameraState): void {
+    const referenceCamera = fitReferenceCamera;
+    if (!referenceCamera) {
+      return;
+    }
+
+    const baseDistance = Math.max(getCameraDistance(referenceCamera), 1e-6);
+    const currentDistance = Math.max(getCameraDistance(state), 1e-6);
+    const nextZoom = clampZoom(baseDistance / currentDistance, minAllowedZoom, maxAllowedZoom);
+
+    zoomLevel = nextZoom;
+    appliedZoomLevel = nextZoom;
+  }
 
   $effect(() => {
     const nextValue = value;
@@ -272,6 +338,10 @@
   });
 
   $effect(() => {
+    currentPointSizeMode = runtimeValue.point_size_mode;
+  });
+
+  $effect(() => {
     maxPointSize = Math.max(runtimeValue.max_point_size, MIN_POINT_SIZE);
     pointSize = clampPointSize(runtimeValue.point_size, maxPointSize);
   });
@@ -285,22 +355,74 @@
   });
 
   $effect(() => {
-    const currentAssets = assets;
+    fitReferenceCamera;
+    minAllowedZoom;
+    maxAllowedZoom;
+
+    syncManager.setStateChangeHandler((state) => {
+      updateZoomFromCameraState(state);
+    });
+
+    return () => {
+      syncManager.setStateChangeHandler(null);
+    };
+  });
+
+  $effect(() => {
+    gridEl;
+    gridColumns;
+    viewerHeight;
+    displaySlots.length;
+    queueMicrotask(() => updateViewportAspect());
+  });
+
+  $effect(() => {
+    assetReloadKey;
     const mode = currentRenderMode;
+    const currentAssets = untrack(() => assets);
+    const initialPointSize = untrack(() => pointSize);
     if (currentAssets.length > 0) {
-      loadAllAssets(currentAssets, mode);
+      loadAllAssets(currentAssets, mode, initialPointSize);
     } else {
       loadedAssets = [];
       loadingStates = [];
       errorStates = [];
       initialCamera = null;
+      fitReferenceCamera = null;
+      pendingAutoFit = false;
       zoomLevel = clampZoom(runtimeValue.default_zoom, minAllowedZoom, maxAllowedZoom);
+      appliedZoomLevel = zoomLevel;
     }
+  });
+
+  $effect(() => {
+    const shouldAutoFit = pendingAutoFit;
+    const aspect = viewportAspect;
+    if (!shouldAutoFit || aspect <= 0) return;
+
+    updateViewportAspect();
+    const baseFittedCamera = buildBaseFittedCamera();
+    pendingAutoFit = false;
+    if (!baseFittedCamera) {
+      initialCamera = null;
+      fitReferenceCamera = null;
+      return;
+    }
+
+    const fittedZoom = clampZoom(runtimeValue.default_zoom, minAllowedZoom, maxAllowedZoom);
+    const fittedCamera = applyCameraZoom(baseFittedCamera, fittedZoom);
+
+    fitReferenceCamera = baseFittedCamera;
+    initialCamera = fittedCamera;
+    zoomLevel = fittedCamera.zoom;
+    appliedZoomLevel = fittedCamera.zoom;
+    syncManager.resetAll(fittedCamera);
   });
 
   async function loadAllAssets(
     currentAssets: AssetDescriptor[] = assets,
-    mode: RenderMode = currentRenderMode
+    mode: RenderMode = currentRenderMode,
+    initialPointSize = pointSize
   ) {
     const requestId = ++loadRequestId;
     const assetCount = currentAssets.length;
@@ -314,7 +436,7 @@
 
     await Promise.allSettled(
       currentAssets.map((asset, index) =>
-        loadAsset(asset, mode, pointSize)
+        loadAsset(asset, mode, initialPointSize)
           .then((loadedAsset) => {
             nextLoadedAssets[index] = loadedAsset;
             nextLoadingStates[index] = false;
@@ -336,25 +458,22 @@
     loadingStates = nextLoadingStates;
     errorStates = nextErrorStates;
     initialCamera = null;
-    zoomLevel = clampZoom(runtimeValue.default_zoom, minAllowedZoom, maxAllowedZoom);
-
-    const boxes: THREE.Box3[] = nextLoadedAssets
-      .filter((loadedAsset) => loadedAsset !== null)
-      .map((loadedAsset) => loadedAsset!.bounds);
-
-    if (boxes.length > 0) {
-      const globalBox = mergeBoxes(boxes);
-      initialCamera = computeAutoCamera(globalBox);
-      initialCamera.zoom = clampZoom(runtimeValue.default_zoom, minAllowedZoom, maxAllowedZoom);
-      zoomLevel = initialCamera.zoom;
-      syncManager.resetAll(initialCamera);
-    }
+    pendingAutoFit = true;
   }
 
   function handleReset() {
-    if (!initialCamera) return;
-    zoomLevel = clampZoom(initialCamera.zoom, minAllowedZoom, maxAllowedZoom);
-    syncManager.resetAll(initialCamera);
+    const baseFittedCamera = buildBaseFittedCamera();
+    if (!baseFittedCamera) return;
+
+    const fittedCamera = applyCameraZoom(
+      baseFittedCamera,
+      clampZoom(runtimeValue.default_zoom, minAllowedZoom, maxAllowedZoom)
+    );
+    fitReferenceCamera = baseFittedCamera;
+    initialCamera = fittedCamera;
+    zoomLevel = fittedCamera.zoom;
+    appliedZoomLevel = fittedCamera.zoom;
+    syncManager.resetAll(fittedCamera);
   }
 
   function handleRenderModeChange(mode: RenderMode) {
@@ -367,10 +486,17 @@
     commitValue(assets, { point_size: pointSize });
   }
 
+  function handlePointSizeModeChange(mode: PointSizeMode) {
+    currentPointSizeMode = mode;
+    commitValue(assets, { point_size_mode: mode });
+  }
+
   function handleZoomChange() {
-    zoomLevel = clampZoom(zoomLevel, minAllowedZoom, maxAllowedZoom);
-    syncManager.setZoom(zoomLevel);
-    commitValue(assets, { default_zoom: zoomLevel }, false);
+    const nextZoom = clampZoom(zoomLevel, minAllowedZoom, maxAllowedZoom);
+    syncManager.setZoom(nextZoom, appliedZoomLevel);
+    zoomLevel = nextZoom;
+    appliedZoomLevel = nextZoom;
+    commitValue(assets, { default_zoom: nextZoom }, false);
   }
 
   function handleUploadRequest(slotIndex: number, sourceIndex: number | null) {
@@ -398,6 +524,16 @@
   ) {
     await loadUploadedFiles(files, slotIndex, sourceIndex);
   }
+
+  function handleRemoveAsset(sourceIndex: number | null) {
+    if (sourceIndex === null || !assets[sourceIndex]) {
+      return;
+    }
+
+    revokeManagedUrl(assets[sourceIndex].url);
+    const nextAssets = assets.filter((_, index) => index !== sourceIndex);
+    commitValue(nextAssets);
+  }
 </script>
 
 <div class="sync3d-root">
@@ -421,16 +557,32 @@
           >Native</button>
         </div>
       </div>
+
+      <div class="toolbar-group">
+        <span class="toolbar-label">Point Size:</span>
+        <div class="segmented-control">
+          <button
+            class="toolbar-btn mode-btn {currentPointSizeMode === 'auto' ? 'active' : ''}"
+            onclick={() => handlePointSizeModeChange("auto")}
+          >Auto</button>
+          <button
+            class="toolbar-btn mode-btn {currentPointSizeMode === 'manual' ? 'active' : ''}"
+            onclick={() => handlePointSizeModeChange("manual")}
+          >Manual</button>
+        </div>
+      </div>
     </div>
 
     <div class="toolbar-cluster controls-cluster">
       <div class="toolbar-group slider-group">
-        <span class="toolbar-label">Size: {pointSize.toFixed(1)}</span>
+        <span class="toolbar-label">
+          {currentPointSizeMode === "auto" ? "Size Multiplier" : "Size"}: {pointSize.toFixed(1)}
+        </span>
         <input
           type="range"
           min={MIN_POINT_SIZE}
           max={maxPointSize}
-          step="0.5"
+          step={currentPointSizeMode === "auto" ? "0.1" : "0.5"}
           bind:value={pointSize}
           class="toolbar-slider"
           oninput={handlePointSizeChange}
@@ -452,7 +604,7 @@
     </div>
   </div>
 
-  <div class="viewports-grid" style="--grid-columns: {gridColumns};">
+  <div bind:this={gridEl} class="viewports-grid" style="--grid-columns: {gridColumns};">
     {#each displaySlots as slot (slot.slotIndex)}
       <Viewport
         asset={slot.sourceIndex === null ? null : loadedAssets[slot.sourceIndex] ?? null}
@@ -460,6 +612,7 @@
         height={viewerHeight}
         {syncManager}
         {initialCamera}
+        pointSizeMode={currentPointSizeMode}
         {pointSize}
         loading={slot.sourceIndex === null ? false : loadingStates[slot.sourceIndex] ?? true}
         error={slot.sourceIndex === null ? null : errorStates[slot.sourceIndex] ?? null}
@@ -467,6 +620,8 @@
         uploadable={slot.descriptor === null}
         request_upload={() => handleUploadRequest(slot.slotIndex, slot.sourceIndex)}
         drop_files={(files) => handleDroppedFiles(files, slot.slotIndex, slot.sourceIndex)}
+        removable={slot.sourceIndex !== null}
+        remove_asset={() => handleRemoveAsset(slot.sourceIndex)}
       />
     {/each}
   </div>

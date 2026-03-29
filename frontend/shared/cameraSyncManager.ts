@@ -14,6 +14,7 @@ export class CameraSyncManager {
   private listeners = new Map<string, () => void>();
   private isSyncing = false;
   private syncEnabled = true;
+  private stateChangeHandler: ((state: CameraState) => void) | null = null;
 
   register(entry: ViewportEntry): void {
     const previous = this.viewports.get(entry.id);
@@ -44,12 +45,36 @@ export class CameraSyncManager {
     this.syncEnabled = enabled;
   }
 
-  setZoom(zoom: number): void {
-    for (const vp of this.viewports.values()) {
-      vp.camera.zoom = zoom;
-      vp.camera.updateProjectionMatrix();
-      vp.controls.update();
-      vp.render();
+  setStateChangeHandler(handler: ((state: CameraState) => void) | null): void {
+    this.stateChangeHandler = handler;
+  }
+
+  setZoom(nextZoom: number, previousZoom: number): void {
+    const safePreviousZoom = Math.max(previousZoom, 0.1);
+    const safeNextZoom = Math.max(nextZoom, 0.1);
+    const distanceScale = safePreviousZoom / safeNextZoom;
+
+    this.isSyncing = true;
+    try {
+      for (const vp of this.viewports.values()) {
+        const offset = vp.camera.position.clone().sub(vp.controls.target);
+        if (offset.lengthSq() === 0) {
+          offset.set(0, 0, 1);
+        }
+        offset.multiplyScalar(distanceScale);
+        vp.camera.position.copy(vp.controls.target).add(offset);
+        vp.camera.zoom = 1;
+        vp.camera.updateProjectionMatrix();
+        vp.controls.update();
+        vp.render();
+      }
+    } finally {
+      this.isSyncing = false;
+    }
+
+    const firstViewport = this.viewports.values().next().value;
+    if (firstViewport && this.stateChangeHandler) {
+      this.stateChangeHandler(this.extractState(firstViewport));
     }
   }
 
@@ -58,6 +83,9 @@ export class CameraSyncManager {
       this.applyState(vp, state);
       vp.controls.update();
       vp.render();
+    }
+    if (this.stateChangeHandler) {
+      this.stateChangeHandler(state);
     }
   }
 
@@ -77,6 +105,10 @@ export class CameraSyncManager {
         vp.controls.update();
         vp.render();
       }
+
+      if (this.stateChangeHandler) {
+        this.stateChangeHandler(state);
+      }
     } finally {
       this.isSyncing = false;
     }
@@ -89,15 +121,23 @@ export class CameraSyncManager {
     return {
       position: { x: pos.x, y: pos.y, z: pos.z },
       target: { x: target.x, y: target.y, z: target.z },
-      zoom: vp.camera.zoom,
+      zoom: 1,
       up: { x: up.x, y: up.y, z: up.z },
+      near: vp.camera.near,
+      far: vp.camera.far,
     };
   }
 
   private applyState(vp: ViewportEntry, state: CameraState): void {
     vp.camera.position.set(state.position.x, state.position.y, state.position.z);
     vp.camera.up.set(state.up.x, state.up.y, state.up.z);
-    vp.camera.zoom = state.zoom;
+    vp.camera.zoom = 1;
+    if (state.near !== undefined) {
+      vp.camera.near = state.near;
+    }
+    if (state.far !== undefined) {
+      vp.camera.far = state.far;
+    }
     vp.camera.updateProjectionMatrix();
     vp.controls.target.set(state.target.x, state.target.y, state.target.z);
   }
