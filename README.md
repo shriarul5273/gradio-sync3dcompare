@@ -1,7 +1,6 @@
 
 # `gradio_sync3dcompare`
-<a href="https://pypi.org/project/gradio_sync3dcompare/" target="_blank"><img alt="PyPI - Version" src="https://img.shields.io/pypi/v/gradio_sync3dcompare"></a> <a href="https://github.com/shriarul5273/gradio-sync3dcompare/issues" target="_blank"><img alt="Static Badge" src="https://img.shields.io/badge/Issues-white?logo=github&logoColor=black"></a><a href="https://huggingface.co/spaces/shriarul5273/gradio_sync3dcompare_demo" target="_blank"><img alt="Hugging Face Spaces" src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue"></a>
-[![PyPI Downloads](https://static.pepy.tech/personalized-badge/gradio-sync3dcompare?period=total&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/gradio-sync3dcompare)
+<a href="https://pypi.org/project/gradio_sync3dcompare/" target="_blank"><img alt="PyPI - Version" src="https://img.shields.io/pypi/v/gradio_sync3dcompare"></a> <a href="https://github.com/shriarul5273/gradio-sync3dcompare/issues" target="_blank"><img alt="Static Badge" src="https://img.shields.io/badge/Issues-white?logo=github&logoColor=black"></a> 
 
 Synchronized side-by-side 3D comparison viewer for Gradio — supports PLY and GLB files with shared camera control.
 

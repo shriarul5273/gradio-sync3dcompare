@@ -37,5 +37,8 @@
     "type": "git",
     "url": "git+https://github.com/gradio-app/gradio.git",
     "directory": "js/fallback"
+  },
+  "scripts": {
+    "postinstall": "python3 ../scripts/patch_gradio_preview_examine.py"
   }
 }
