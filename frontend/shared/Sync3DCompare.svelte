@@ -306,6 +306,10 @@
     }
 
     const globalBox = mergeBoxes(boxes);
+    const dx = globalBox.max.x - globalBox.min.x;
+    const dy = globalBox.max.y - globalBox.min.y;
+    const dz = globalBox.max.z - globalBox.min.z;
+    syncManager.setSceneDiameter(Math.sqrt(dx * dx + dy * dy + dz * dz));
     return computeAutoCamera(globalBox, viewportAspect, CAMERA_FIELD_OF_VIEW);
   }
 

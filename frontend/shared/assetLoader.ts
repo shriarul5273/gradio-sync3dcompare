@@ -63,6 +63,7 @@ async function loadPLY(
   });
 
   const points = new THREE.Points(geometry, material);
+  points.frustumCulled = false;
   const bounds = new THREE.Box3().setFromObject(points);
   const fitSphere = bounds.getBoundingSphere(new THREE.Sphere());
   const basePointSize = computeAutoPointSize(bounds, geometry.attributes.position.count);
@@ -100,6 +101,10 @@ async function loadGLB(
 
   if (renderMode === "native") {
     object3d = scene;
+    // Disable frustum culling on all meshes so parts never disappear during zoom
+    scene.traverse((child) => {
+      child.frustumCulled = false;
+    });
     const pointMetrics = getPointCloudMetrics(scene);
     if (pointMetrics) {
       basePointSize = computeAutoPointSize(pointMetrics.bounds, pointMetrics.pointCount);

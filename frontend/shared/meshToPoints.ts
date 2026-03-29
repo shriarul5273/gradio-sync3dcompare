@@ -75,6 +75,8 @@ export function glbToPoints(
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  geo.computeBoundingBox();
+  geo.computeBoundingSphere();
 
   const mat = new THREE.PointsMaterial({
     size: 0.02,
@@ -82,7 +84,9 @@ export function glbToPoints(
     sizeAttenuation: true,
   });
 
-  return new THREE.Points(geo, mat);
+  const pts = new THREE.Points(geo, mat);
+  pts.frustumCulled = false;
+  return pts;
 }
 
 function getPointCount(pointCloud: THREE.Points): number {

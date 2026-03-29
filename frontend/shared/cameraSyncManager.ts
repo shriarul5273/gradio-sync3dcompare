@@ -9,12 +9,26 @@ export interface ViewportEntry {
   render: () => void;
 }
 
+const MIN_NEAR = 0.0001;
+
 export class CameraSyncManager {
   private viewports = new Map<string, ViewportEntry>();
   private listeners = new Map<string, () => void>();
   private isSyncing = false;
   private syncEnabled = true;
   private stateChangeHandler: ((state: CameraState) => void) | null = null;
+  private sceneDiameter = 1;
+
+  setSceneDiameter(d: number): void {
+    this.sceneDiameter = Math.max(d, 0.001);
+  }
+
+  private computeNearFar(distance: number): { near: number; far: number } {
+    const safeDistance = Math.max(distance, MIN_NEAR);
+    const near = Math.max(MIN_NEAR, safeDistance * 0.001);
+    const far = Math.max(near * 100000, this.sceneDiameter * 10);
+    return { near, far };
+  }
 
   register(entry: ViewportEntry): void {
     const previous = this.viewports.get(entry.id);
@@ -64,6 +78,9 @@ export class CameraSyncManager {
         offset.multiplyScalar(distanceScale);
         vp.camera.position.copy(vp.controls.target).add(offset);
         vp.camera.zoom = 1;
+        const { near, far } = this.computeNearFar(offset.length());
+        vp.camera.near = near;
+        vp.camera.far = far;
         vp.camera.updateProjectionMatrix();
         vp.controls.update();
         vp.render();
@@ -96,6 +113,15 @@ export class CameraSyncManager {
     try {
       const source = this.viewports.get(sourceId);
       if (!source) return;
+
+      // Dynamically update near/far based on current camera-to-target distance
+      const distance = source.camera.position.distanceTo(source.controls.target);
+      if (distance > 0) {
+        const { near, far } = this.computeNearFar(distance);
+        source.camera.near = near;
+        source.camera.far = far;
+        source.camera.updateProjectionMatrix();
+      }
 
       const state = this.extractState(source);
 

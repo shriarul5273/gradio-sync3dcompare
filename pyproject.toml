@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gradio_sync3dcompare"
-version = "0.0.15"
+version = "0.0.22"
 description = "Synchronized side-by-side 3D comparison viewer for Gradio — supports PLY and GLB files with shared camera control."
 readme = "README.md"
 license = "Apache-2.0"
